@@ -300,6 +300,15 @@ def generateDebugFileName(inputFile):
     baseName = inputFile.rsplit('.', 1)[0]
     return f"{baseName}-Debug-{timestamp}.txt"
 
+def showSpinner():
+    """
+    Displays a spinner to indicate progress.
+    """
+    while True:
+        for char in "|/-\\":
+            print(f"\rGenerating matches, please wait... {char}", end="", flush=True)
+            time.sleep(0.1)
+
 def main() -> bool:
     """
     Main execution function coordinating the Secret Santa generation process.
