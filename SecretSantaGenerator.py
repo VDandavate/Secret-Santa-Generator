@@ -57,11 +57,22 @@ def ensureDirectories():
 
 def moveInputFileToFolder(inputFile):
     """
-    Moves the input file to the input folder if it is in the code directory.
+    Moves the input file to the input folder if it is not already in the input folder.
     """
-    if os.path.isfile(inputFile) and not os.path.isfile(f"input/{inputFile}"):
-        os.rename(inputFile, f"input/{inputFile}")
-        return f"input/{inputFile}"
+    inputFolder = "input/"
+
+    # Ensure the input folder path is normalized
+    inputFilePath = os.path.abspath(inputFile)
+    inputFolderPath = os.path.abspath(inputFolder)
+
+    if not inputFilePath.startswith(inputFolderPath):
+        targetPath = os.path.join(inputFolder, os.path.basename(inputFile))
+        if not os.path.exists(inputFolder):
+            os.makedirs(inputFolder)
+        os.rename(inputFile, targetPath)
+        return targetPath
+
+    # If already in the input folder, return the path as is
     return inputFile
 
 def writeDebugInfo(messageType, message):
