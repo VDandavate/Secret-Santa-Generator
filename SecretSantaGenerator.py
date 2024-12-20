@@ -268,7 +268,20 @@ def generateOutputFileName(inputFile: str) -> str:
     baseName = inputFile.rsplit('.', 1)[0]
     return f"{baseName}-Matched-{timestamp}.txt"
 
-# [Rest of the functions with similar comprehensive documentation...]
+def generateDebugFileName(inputFile):
+    """
+    Generates a unique debug filename based on input filename and timestamp.
+
+    Args:
+        inputFile (str): Original input filename
+
+    Returns:
+        str: Generated output filename in format:
+             {original_name}-Debug-{YYYYMMDDHHMMSS}.txt
+    """
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    baseName = inputFile.rsplit('.', 1)[0]
+    return f"{baseName}-Debug-{timestamp}.txt"
 
 def main() -> bool:
     """
