@@ -1,6 +1,8 @@
 import random
 import sys
 from datetime import datetime
+import itertools
+import time
 
 def read_input_file(file_name):
     """
@@ -19,11 +21,10 @@ def read_input_file(file_name):
             }
     return participants
 
-def match_secret_santa(participants):
+def match_secret_santa_in_category(participants):
     """
-    Matches participants for Secret Santa, ensuring:
+    Matches participants for Secret Santa within a single category, ensuring:
     - No one is matched with someone from the same family.
-    - Matches occur within the same category.
     - No duplicate pairings.
     """
     emails = list(participants.keys())
@@ -41,7 +42,6 @@ def match_secret_santa(participants):
             receiver_details = participants[potential_receiver]
 
             if (receiver_details['family'] != sender_details['family'] and
-                receiver_details['category'] == sender_details['category'] and
                 potential_receiver not in matches.values()):
                 receiver = potential_receiver
                 break
@@ -53,6 +53,42 @@ def match_secret_santa(participants):
 
     return matches
 
+def match_secret_santa(participants, debug_file=None):
+    """
+    Matches participants for Secret Santa across categories and combines results.
+    """
+    # Split participants by category
+    category_groups = {}
+    for email, details in participants.items():
+        category_groups.setdefault(details['category'], {}).update({email: details})
+
+    all_matches = {}
+
+    for category, group in category_groups.items():
+        if debug_file:
+            with open(debug_file, 'a') as dbg:
+                dbg.write(f"Matching for category {category}\n")
+
+        retries = 0
+        max_retries = 100
+        while retries < max_retries:
+            matches = match_secret_santa_in_category(group)
+            if matches:
+                all_matches.update(matches)
+                break
+            retries += 1
+            if debug_file:
+                with open(debug_file, 'a') as dbg:
+                    dbg.write(f"Retry {retries} for category {category}\n")
+
+        if retries == max_retries:
+            if debug_file:
+                with open(debug_file, 'a') as dbg:
+                    dbg.write(f"Failed to generate matches for category {category} after {max_retries} attempts\n")
+            return None
+
+    return all_matches
+
 def generate_output_file_name(input_file):
     """
     Generates a unique output file name based on the input file name and current timestamp.
@@ -60,6 +96,14 @@ def generate_output_file_name(input_file):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     base_name = input_file.rsplit('.', 1)[0]
     return f"{base_name}-Matched-{timestamp}.txt"
+
+def generate_debug_file_name(input_file):
+    """
+    Generates a debug file name based on the input file name and current timestamp.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    base_name = input_file.rsplit('.', 1)[0]
+    return f"{base_name}-Debug-{timestamp}.txt"
 
 def write_output_file(matches, participants, output_file):
     """
@@ -74,6 +118,15 @@ def write_output_file(matches, participants, output_file):
             file.write(f"{sender_details['first_name']},{sender_details['last_name']},{sender},"
                        f"{receiver_details['first_name']},{receiver_details['last_name']},{receiver}\n")
 
+def spinner():
+    """
+    Displays a spinner to indicate progress.
+    """
+    while True:
+        for char in "|/-\\":
+            print(f"\rGenerating matches, please wait... {char}", end="", flush=True)
+            time.sleep(0.1)
+
 def secret_santa():
     """
     Main function to generate Secret Santa matches and write to the output file.
@@ -86,31 +139,33 @@ def secret_santa():
 
     participants = read_input_file(input_file)
 
-    while True:
-        print("Attempting to generate Secret Santa matches...")
-        matches = match_secret_santa(participants)
+    output_file = generate_output_file_name(input_file)
+    debug_file = generate_debug_file_name(input_file)
 
-        if matches:
-            print("Generated Secret Santa matches successfully.")
-            for sender, receiver in matches.items():
-                sender_details = participants[sender]
-                receiver_details = participants[receiver]
-                print(f"{sender_details['first_name']} {sender_details['last_name']} ({sender}) -> "
-                      f"{receiver_details['first_name']} {receiver_details['last_name']} ({receiver})")
+    import threading
+    spin_thread = threading.Thread(target=spinner, daemon=True)
+    spin_thread.start()
 
-            confirmation = input("Are these matches okay? (Y/N): ")
-            if confirmation.lower() == 'y':
-                output_file = generate_output_file_name(input_file)
-                write_output_file(matches, participants, output_file)
-                print(f"Matches written to {output_file}.")
-                break
-            elif confirmation.lower() == 'n':
-                print("Restarting the matching process...")
-                continue
-            else:
-                print("Invalid input. Please enter Y/y or N/n.")
+    matches = match_secret_santa(participants, debug_file)
+
+    if matches:
+        print("\nGenerated Secret Santa matches successfully.")
+        for sender, receiver in matches.items():
+            sender_details = participants[sender]
+            receiver_details = participants[receiver]
+            print(f"{sender_details['first_name']} {sender_details['last_name']} ({sender}) -> "
+                  f"{receiver_details['first_name']} {receiver_details['last_name']} ({receiver})")
+
+        confirmation = input("Are these matches okay? (Y/N): ")
+        if confirmation.lower() == 'y':
+            write_output_file(matches, participants, output_file)
+            print(f"Matches written to {output_file}.")
         else:
-            print("Matching failed. Retrying...")
+            print("Operation canceled by the user.")
+    else:
+        print("\nFailed to generate matches. Please review the input file and constraints.")
+
+    spin_thread.join()
 
 # Unit Test Function
 if __name__ == "__main__":
@@ -138,4 +193,8 @@ if __name__ == "__main__":
             for sender, receiver in matches.items():
                 self.assertNotEqual(sender, receiver, "Self-matching detected.")
 
-    secret_santa()
+        def test_debug_file_generation(self):
+            debug_file = generate_debug_file_name("TestParticipants.txt")
+            self.assertTrue(debug_file.startswith("TestParticipants-Debug"), "Debug file name not generated correctly.")
+
+    unittest.main()
