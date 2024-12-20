@@ -34,7 +34,7 @@ Usage:
 
 Author: [Your Name]
 Date: December 2024
-Version: 3.0
+Version: 3.1
 """
 
 import random
@@ -239,18 +239,36 @@ def main():
             print(message)
             return False
 
-        progressThread = threading.Thread(target=showProgress, daemon=True)
-        progressThread.start()
+        while True:
+            progressThread = threading.Thread(target=showProgress, daemon=True)
+            progressThread.start()
 
-        matches = matchSecretSanta(participants)
-        if matches:
-            outputFile = f"output/{generateFileName(inputFile.rsplit('/', 1)[-1].rsplit('.', 1)[0], 'Matched')}"
-            writeOutputFile(matches, participants, outputFile)
-            print(f"\nResults saved to {outputFile}. Check debug/allDebug.log for details.")
-            return True
-        else:
-            print("\nMatching failed. Check debug/allDebug.log for details.")
-            return False
+            matches = matchSecretSanta(participants)
+
+            if matches:
+                print("\nProposed Matches:")
+                for sender, receiver in matches.items():
+                    senderDetails = participants[sender]
+                    receiverDetails = participants[receiver]
+                    print(f"{senderDetails['firstName']} {senderDetails['lastName']} ({sender}) -> "
+                          f"{receiverDetails['firstName']} {receiverDetails['lastName']} ({receiver})")
+
+                confirmation = input("\nAre these matches acceptable? (Y/N): ").strip().lower()
+                if confirmation in ('y', 'yes'):
+                    outputFile = f"output/{generateFileName(inputFile.rsplit('/', 1)[-1].rsplit('.', 1)[0], 'Matched')}"
+                    writeOutputFile(matches, participants, outputFile)
+                    print(f"\nResults saved to {outputFile}. Check debug/allDebug.log for details.")
+                    return True
+                elif confirmation in ('n', 'no'):
+                    print("Re-running the matching process...\n")
+                    continue
+                else:
+                    print("Invalid input. Please enter 'Y', 'N', 'Yes', or 'No'.")
+                    continue
+            else:
+                print("\nMatching failed. Check debug/allDebug.log for details.")
+                return False
+
     finally:
         if 'progressThread' in locals():
             progressThread.join(0.2)
