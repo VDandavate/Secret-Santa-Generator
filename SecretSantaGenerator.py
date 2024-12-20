@@ -46,6 +46,23 @@ import threading
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional
 
+def readInputFile(inputFilename):
+    """
+    Reads the input file and returns a dictionary of participants with their details.
+    Format of the input file: email;firstName;lastName;family;category
+    """
+    participants = {}
+    with open(inputFilename, 'r') as file:
+        for line in file:
+            email, firstName, lastName, family, category = line.strip().split(';')
+            participants[email] = {
+                'firstName': firstName,
+                'lastName': lastName,
+                'family': family,
+                'category': category
+            }
+    return participants
+
 def validateEmail(email: str) -> bool:
     """
     Validates email format using regex pattern matching.
