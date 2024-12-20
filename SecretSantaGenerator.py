@@ -34,17 +34,51 @@ Usage:
 
 Author: [Your Name]
 Date: December 2024
-Version: 2.1
+Version: 3.0
 """
 
 import random
 import sys
 import re
+import os
 from datetime import datetime
 import time
 import threading
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional
+
+def ensureDirectories():
+    """
+    Ensures required directories exist: input, debug, and output.
+    """
+    for folder in ["input", "debug", "output"]:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+def moveInputFileToFolder(inputFile):
+    """
+    Moves the input file to the input folder if it is in the code directory.
+    """
+    if os.path.isfile(inputFile) and not os.path.isfile(f"input/{inputFile}"):
+        os.rename(inputFile, f"input/{inputFile}")
+        return f"input/{inputFile}"
+    return inputFile
+
+def writeDebugInfo(messageType, message):
+    """
+    Logs debugging information to a single debug file with a timestamp and message type.
+    """
+    debugFile = "debug/allDebug.log"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(debugFile, 'a') as dbg:
+        dbg.write(f"[{timestamp}] {messageType}: {message}\n")
+
+def generateFileName(base, suffix):
+    """
+    Generates a unique file name with a timestamp.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    return f"{base}-{suffix}-{timestamp}.txt"
 
 def readInputFile(inputFilename):
     """
@@ -69,14 +103,14 @@ def validateEmail(email):
     pattern = r'^[a-zA-Z0-9.%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
-def validateInputData(participants, debugFile):
+def validateInputData(participants):
     """
     Validates participant data for correctness and compliance with constraints.
     """
-    writeDebugInfo(debugFile, "INFO", "Validating participant data.")
+    writeDebugInfo("INFO", "Validating participant data.")
 
     if len(participants) < 2:
-        writeDebugInfo(debugFile, "ERROR", "Insufficient participants (minimum 2 required).")
+        writeDebugInfo("ERROR", "Insufficient participants (minimum 2 required).")
         return False, "Need at least 2 participants."
 
     seenEmails = set()
@@ -84,42 +118,34 @@ def validateInputData(participants, debugFile):
 
     for email, details in participants.items():
         if not validateEmail(email):
-            writeDebugInfo(debugFile, "ERROR", f"Invalid email: {email}.")
+            writeDebugInfo("ERROR", f"Invalid email: {email}.")
             return False, f"Invalid email format: {email}."
 
         if email in seenEmails:
-            writeDebugInfo(debugFile, "ERROR", f"Duplicate email found: {email}.")
+            writeDebugInfo("ERROR", f"Duplicate email found: {email}.")
             return False, f"Duplicate email: {email}."
         seenEmails.add(email)
 
         for field in ['firstName', 'lastName', 'family', 'category']:
             if not details.get(field):
-                writeDebugInfo(debugFile, "ERROR", f"Missing field {field} for {email}.")
+                writeDebugInfo("ERROR", f"Missing field {field} for {email}.")
                 return False, f"Missing {field} for {email}."
 
         categoryGroups[details['category']].append(email)
 
     for category, members in categoryGroups.items():
         if len(members) < 2:
-            writeDebugInfo(debugFile, "ERROR", f"Category {category} has fewer than 2 participants.")
+            writeDebugInfo("ERROR", f"Category {category} has fewer than 2 participants.")
             return False, f"Category {category} has insufficient participants."
 
-    writeDebugInfo(debugFile, "INFO", "Validation successful.")
+    writeDebugInfo("INFO", "Validation successful.")
     return True, "Validation passed."
 
-def writeDebugInfo(debugFile, messageType, message):
-    """
-    Logs debugging information to a file.
-    """
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open(debugFile, 'a') as dbg:
-        dbg.write(f"[{timestamp}] {messageType}: {message}\n")
-
-def matchParticipantsInCategory(participants, debugFile, attempt):
+def matchParticipantsInCategory(participants, attempt):
     """
     Matches participants in a single category while meeting constraints.
     """
-    writeDebugInfo(debugFile, "INFO", f"Attempting match, attempt {attempt}.")
+    writeDebugInfo("INFO", f"Attempting match, attempt {attempt}.")
 
     emails = list(participants.keys())
 
@@ -136,17 +162,17 @@ def matchParticipantsInCategory(participants, debugFile, attempt):
     for sender in emails:
         validReceivers = [r for r in receivers if r != sender and participants[r]['family'] != participants[sender]['family']]
         if not validReceivers:
-            writeDebugInfo(debugFile, "ERROR", f"No valid receiver for {sender}.")
+            writeDebugInfo("ERROR", f"No valid receiver for {sender}.")
             return None
 
         receiver = random.choice(validReceivers)
         matches[sender] = receiver
         receivers.remove(receiver)
 
-    writeDebugInfo(debugFile, "INFO", "Matching successful.")
+    writeDebugInfo("INFO", "Matching successful.")
     return matches
 
-def matchSecretSanta(participants, debugFile):
+def matchSecretSanta(participants):
     """
     Performs the Secret Santa matching process with retries.
     """
@@ -158,22 +184,15 @@ def matchSecretSanta(participants, debugFile):
 
     for category, group in categories.items():
         for attempt in range(100):
-            matches = matchParticipantsInCategory(group, debugFile, attempt)
+            matches = matchParticipantsInCategory(group, attempt)
             if matches:
                 finalMatches.update(matches)
                 break
         else:
-            writeDebugInfo(debugFile, "ERROR", f"Failed to match category {category} after 100 attempts.")
+            writeDebugInfo("ERROR", f"Failed to match category {category} after 100 attempts.")
             return None
 
     return finalMatches
-
-def generateFileName(base, suffix):
-    """
-    Generates a unique file name with a timestamp.
-    """
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    return f"{base}-{suffix}-{timestamp}.txt"
 
 def writeOutputFile(matches, participants, outputFile):
     """
@@ -202,17 +221,20 @@ def main():
     Main function to handle Secret Santa matching.
     """
     try:
+        ensureDirectories()
+
         if len(sys.argv) > 1:
             inputFile = sys.argv[1]
         else:
             inputFile = input("Enter the input file name: ")
 
-        debugFile = generateFileName(inputFile.rsplit('.', 1)[0], "Debug")
-        writeDebugInfo(debugFile, "INFO", "Starting process.")
+        inputFile = moveInputFileToFolder(inputFile)
+
+        writeDebugInfo("INFO", "Starting process.")
 
         participants = readInputFile(inputFile)
 
-        isValid, message = validateInputData(participants, debugFile)
+        isValid, message = validateInputData(participants)
         if not isValid:
             print(message)
             return False
@@ -220,14 +242,14 @@ def main():
         progressThread = threading.Thread(target=showProgress, daemon=True)
         progressThread.start()
 
-        matches = matchSecretSanta(participants, debugFile)
+        matches = matchSecretSanta(participants)
         if matches:
-            outputFile = generateFileName(inputFile.rsplit('.', 1)[0], "Matched")
+            outputFile = f"output/{generateFileName(inputFile.rsplit('/', 1)[-1].rsplit('.', 1)[0], 'Matched')}"
             writeOutputFile(matches, participants, outputFile)
-            print(f"\nResults saved to {outputFile}. Debug log: {debugFile}")
+            print(f"\nResults saved to {outputFile}. Check debug/allDebug.log for details.")
             return True
         else:
-            print("\nMatching failed. Check debug log for details.")
+            print("\nMatching failed. Check debug/allDebug.log for details.")
             return False
     finally:
         if 'progressThread' in locals():
