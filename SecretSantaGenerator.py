@@ -32,7 +32,7 @@ Usage:
 2. Run unit tests:
     python SecretSantaGenerator.py --test
 
-Author: [Your Name]
+Author: Vaibhav Dandavate
 Date: December 2024
 Version: 3.1
 """
